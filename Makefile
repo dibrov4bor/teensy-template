@@ -1,8 +1,10 @@
+ARDUINODIR = /usr/share/arduino
+
 # The name of your project (used to name the compiled .hex file)
 TARGET = $(notdir $(CURDIR))
 
 # The teensy version to use, 30, 31, or LC
-TEENSY = 30
+TEENSY = 31
 
 # Set to 24000000, 48000000, or 96000000 to set CPU core speed
 TEENSY_CORE_SPEED = 48000000
@@ -24,16 +26,7 @@ BUILDDIR = $(abspath $(CURDIR)/build)
 #************************************************************************
 
 # path location for Teensy Loader, teensy_post_compile and teensy_reboot
-TOOLSPATH = $(CURDIR)/tools
-
-ifeq ($(OS),Windows_NT)
-    $(error What is Win Dose?)
-else
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Darwin)
-        TOOLSPATH = /Applications/Arduino.app/Contents/Java/hardware/tools/
-    endif
-endif
+TOOLSPATH = $(ARDUINODIR)/hardware/tools
 
 # path location for Teensy 3 core
 COREPATH = teensy3
@@ -42,7 +35,7 @@ COREPATH = teensy3
 LIBRARYPATH = libraries
 
 # path location for the arm-none-eabi compiler
-COMPILERPATH = $(TOOLSPATH)/arm/bin
+COMPILERPATH = $(ARDUINODIR)/hardware/tools/arm/bin
 
 #************************************************************************
 # Settings below this point usually do not need to be edited
@@ -135,6 +128,10 @@ $(BUILDDIR)/%.o: %.c
 $(BUILDDIR)/%.o: %.cpp
 	@echo "[CXX]\t$<"
 	@mkdir -p "$(dir $@)"
+	@echo "$(CXX)"
+	@echo "$(CXXFLAGS)"
+	@echo "$(CPPFLAGS)"
+	@echo "$(L_INC)"
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(L_INC) -o "$@" -c "$<"
 
 $(BUILDDIR)/%.o: %.ino
@@ -144,6 +141,7 @@ $(BUILDDIR)/%.o: %.ino
 
 $(TARGET).elf: $(OBJS) $(LDSCRIPT)
 	@echo "[LD]\t$@"
+	@echo "$(OBJS)"
 	@$(CC) $(LDFLAGS) -o "$@" $(OBJS) $(LIBS)
 
 %.hex: %.elf
