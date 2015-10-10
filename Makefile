@@ -29,7 +29,7 @@ BUILDDIR = $(abspath $(CURDIR)/build)
 TOOLSPATH = $(ARDUINODIR)/hardware/tools
 
 # path location for Teensy 3 core
-COREPATH = teensy3
+COREPATH = $(ARDUINODIR)/hardware/teensy/avr/cores/teensy3
 
 # path location for Arduino libraries
 LIBRARYPATH = libraries
@@ -81,8 +81,6 @@ endif
 # set arduino define if given
 ifdef ARDUINO
 	CPPFLAGS += -DARDUINO=$(ARDUINO)
-else
-	CPPFLAGS += -DUSING_MAKEFILE
 endif
 
 # names for the compiler programs
@@ -98,12 +96,11 @@ TC_FILES := $(wildcard $(COREPATH)/*.c)
 TCPP_FILES := $(wildcard $(COREPATH)/*.cpp)
 C_FILES := $(wildcard src/*.c)
 CPP_FILES := $(wildcard src/*.cpp)
-INO_FILES := $(wildcard src/*.ino)
 
 # include paths for libraries
 L_INC := $(foreach lib,$(filter %/, $(wildcard $(LIBRARYPATH)/*/)), -I$(lib))
 
-SOURCES := $(C_FILES:.c=.o) $(CPP_FILES:.cpp=.o) $(INO_FILES:.ino=.o) $(TC_FILES:.c=.o) $(TCPP_FILES:.cpp=.o) $(LC_FILES:.c=.o) $(LCPP_FILES:.cpp=.o)
+SOURCES := $(C_FILES:.c=.o) $(CPP_FILES:.cpp=.o) $(TC_FILES:.c=.o) $(TCPP_FILES:.cpp=.o) $(LC_FILES:.c=.o) $(LCPP_FILES:.cpp=.o)
 OBJS := $(foreach src,$(SOURCES), $(BUILDDIR)/$(src))
 
 all: hex
@@ -128,20 +125,10 @@ $(BUILDDIR)/%.o: %.c
 $(BUILDDIR)/%.o: %.cpp
 	@echo "[CXX]\t$<"
 	@mkdir -p "$(dir $@)"
-	@echo "$(CXX)"
-	@echo "$(CXXFLAGS)"
-	@echo "$(CPPFLAGS)"
-	@echo "$(L_INC)"
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(L_INC) -o "$@" -c "$<"
-
-$(BUILDDIR)/%.o: %.ino
-	@echo "[CXX]\t$<"
-	@mkdir -p "$(dir $@)"
-	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(L_INC) -o "$@" -x c++ -include Arduino.h -c "$<"
 
 $(TARGET).elf: $(OBJS) $(LDSCRIPT)
 	@echo "[LD]\t$@"
-	@echo "$(OBJS)"
 	@$(CC) $(LDFLAGS) -o "$@" $(OBJS) $(LIBS)
 
 %.hex: %.elf
