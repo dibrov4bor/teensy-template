@@ -1,6 +1,6 @@
 ARDUINODIR = /usr/share/arduino
 
-NANOPBPATH = ~/github/nanopb
+NANOPBPATH = /home/bor/github/nanopb
 
 # The name of your project (used to name the compiled .hex file)
 TARGET = $(notdir $(CURDIR))
