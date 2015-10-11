@@ -1,0 +1,9 @@
+package geo;
+
+option optimize_for = SPEED;
+
+message GeoRecord {
+  optional int32 latitude = 5;
+  optional int32 longtitude = 6;
+  optional string note = 7;
+}

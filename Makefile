@@ -1,5 +1,7 @@
 ARDUINODIR = /usr/share/arduino
 
+NANOPBPATH = ~/github/nanopb
+
 # The name of your project (used to name the compiled .hex file)
 TARGET = $(notdir $(CURDIR))
 
@@ -19,6 +21,8 @@ OPTIONS = -DUSB_SERIAL -DLAYOUT_US_ENGLISH
 # directory to build in
 BUILDDIR = $(abspath $(CURDIR)/build)
 
+GENFILES = $(abspath $(CURDIR)/genfiles)
+
 #************************************************************************
 # Location of Teensyduino utilities, Toolchain, and Arduino Libraries.
 # To use this makefile without Arduino, copy the resources from these
@@ -34,6 +38,9 @@ COREPATH = $(ARDUINODIR)/hardware/teensy/avr/cores/teensy3
 # path location for Arduino libraries
 LIBRARYPATH = libraries
 
+# path location for protocol buffer files
+PROTOPATH = proto
+
 # path location for the arm-none-eabi compiler
 COMPILERPATH = $(ARDUINODIR)/hardware/tools/arm/bin
 
@@ -42,7 +49,7 @@ COMPILERPATH = $(ARDUINODIR)/hardware/tools/arm/bin
 #************************************************************************
 
 # CPPFLAGS = compiler options for C and C++
-CPPFLAGS = -Wall -g -Os -mthumb -ffunction-sections -fdata-sections -nostdlib -MMD $(OPTIONS) -DTEENSYDUINO=124 -DF_CPU=$(TEENSY_CORE_SPEED) -Isrc -I$(COREPATH)
+CPPFLAGS = -Wall -g -Os -mthumb -ffunction-sections -fdata-sections -nostdlib -MMD $(OPTIONS) -DTEENSYDUINO=124 -DF_CPU=$(TEENSY_CORE_SPEED) -Isrc -I$(COREPATH) -I$(GENFILES)/$(PROTOPATH)
 
 # compiler options for C++ only
 CXXFLAGS = -std=gnu++0x -felide-constructors -fno-exceptions -fno-rtti
@@ -89,18 +96,24 @@ CXX = $(abspath $(COMPILERPATH))/arm-none-eabi-g++
 OBJCOPY = $(abspath $(COMPILERPATH))/arm-none-eabi-objcopy
 SIZE = $(abspath $(COMPILERPATH))/arm-none-eabi-size
 
+LIBDIRECTORY := $(wildcard $(LIBRARYPATH)/*)
+LIBRARIES := $(LIBDIRECTORY) $(NANOPBPATH)
+
 # automatically create lists of the sources and objects
-LC_FILES := $(wildcard $(LIBRARYPATH)/*/*.c)
-LCPP_FILES := $(wildcard $(LIBRARYPATH)/*/*.cpp)
+LC_FILES := $(foreach lib,$(LIBRARIES),$(wildcard $(lib)/*.c))
+LCPP_FILES := $(foreach lib,$(LIBRARIES),$(wildcard $(lib)/*.cpp))
 TC_FILES := $(wildcard $(COREPATH)/*.c)
 TCPP_FILES := $(wildcard $(COREPATH)/*.cpp)
 C_FILES := $(wildcard src/*.c)
 CPP_FILES := $(wildcard src/*.cpp)
+PROTO_FILES := $(wildcard $(PROTOPATH)/*.proto)
+
+GEN_SOURCES := $(foreach protobuf, $(PROTO_FILES),$(GENFILES)/$(protobuf:.proto=.pb.c))
 
 # include paths for libraries
-L_INC := $(foreach lib,$(filter %/, $(wildcard $(LIBRARYPATH)/*/)), -I$(lib))
+L_INC := $(foreach lib,$(filter %/, $(wildcard $(LIBRARIES)/)), -I$(lib))
 
-SOURCES := $(C_FILES:.c=.o) $(CPP_FILES:.cpp=.o) $(TC_FILES:.c=.o) $(TCPP_FILES:.cpp=.o) $(LC_FILES:.c=.o) $(LCPP_FILES:.cpp=.o)
+SOURCES := $(C_FILES:.c=.o) $(CPP_FILES:.cpp=.o) $(TC_FILES:.c=.o) $(TCPP_FILES:.cpp=.o) $(LC_FILES:.c=.o) $(LCPP_FILES:.cpp=.o) $(GEN_SOURCES:.pb.c=.pb.o)
 OBJS := $(foreach src,$(SOURCES), $(BUILDDIR)/$(src))
 
 all: hex
@@ -117,6 +130,11 @@ reboot:
 
 upload: post_compile reboot
 
+$(GENFILES)/%.pb.c: %.proto
+	@echo "[PROTOC]\t$<"
+	@mkdir -p "$(dir $@)"
+	@protoc "$<" --plugin="$(NANOPBPATH)/generator/protoc-gen-nanopb" --nanopb_out="$(GENFILES)"
+
 $(BUILDDIR)/%.o: %.c
 	@echo "[CC]\t$<"
 	@mkdir -p "$(dir $@)"
@@ -126,6 +144,9 @@ $(BUILDDIR)/%.o: %.cpp
 	@echo "[CXX]\t$<"
 	@mkdir -p "$(dir $@)"
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(L_INC) -o "$@" -c "$<"
+
+# Objects depend on generated files.
+$(OBJS): $(GEN_SOURCES)
 
 $(TARGET).elf: $(OBJS) $(LDSCRIPT)
 	@echo "[LD]\t$@"
@@ -141,5 +162,5 @@ $(TARGET).elf: $(OBJS) $(LDSCRIPT)
 
 clean:
 	@echo Cleaning...
-	@rm -rf "$(BUILDDIR)"
+	@rm -rf "$(BUILDDIR)" "$(GENFILES)"
 	@rm -f "$(TARGET).elf" "$(TARGET).hex"
